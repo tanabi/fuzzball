@@ -833,15 +833,8 @@ static pthread_mutex_t output_mutex = PTHREAD_MUTEX_INITIALIZER;
  * @see resolver_thread_root
  *
  * @private
- * @return int -- not really used for anything, does not always return
  */
 static int do_resolve(void) {
-    /*
-     * TODO: change this to return void and just have the 'return 0's
-     *       below just 'return'.  If you get to the bottom of this function,
-     *       it actually returns NOTHING which is weird -- thankfully nothing
-     *       pays attention to the return value of this function.
-     */
     int ip1, ip2, ip3, ip4;
     in_port_t prt, myprt;
     int doagain;
@@ -864,13 +857,13 @@ static int do_resolve(void) {
 
             /* lock input here. */
             if (pthread_mutex_lock(&input_mutex)) {
-                return 0;
+                return;
             }
 
             if (shutdown_was_requested) {
                 /* unlock input here. */
                 pthread_mutex_unlock(&input_mutex);
-                return 0;
+                return;
             }
 
             /*
@@ -903,7 +896,7 @@ static int do_resolve(void) {
             pthread_mutex_unlock(&input_mutex);
 
             if (shutdown_was_requested) {
-                return 0;
+                return;
             } else if (doagain) {
                 sleep(1);
             }
@@ -966,7 +959,7 @@ static int do_resolve(void) {
 
         /* lock output here. */
         if (pthread_mutex_lock(&output_mutex)) {
-            return 0;
+            return;
         }
 
         fprintf(stdout, "%s\n", outbuf);
