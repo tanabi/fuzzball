@@ -224,8 +224,9 @@ static const char * hostfetch_v6(struct in6_addr *ip) {
  * @private
  * @param ip the IP to add to the cache
  * @param name the host name to add to the cache
+ * @param timestamp the time to store
  */
-static void hostadd_v6(struct in6_addr *ip, const char *name) {
+static void hostadd_v6(struct in6_addr *ip, const char *name, time_t timestamp) {
     struct hostcache *ptr;
 
     if (!(ptr = malloc(sizeof(struct hostcache))))
@@ -241,31 +242,9 @@ static void hostadd_v6(struct in6_addr *ip, const char *name) {
     hostcache_list = ptr;
     memcpy(&(ptr->ipnum_v6), ip, sizeof(struct in6_addr));
     ptr->ipnum = 0;
-    ptr->time = 0;
+    ptr->time = timestamp;
     strcpyn(ptr->name, sizeof(ptr->name), name);
     hostprune();
-}
-
-/**
- * Add an IPv6 and name pair to the cache, and set the timestamp
- *
- * Why this is separate, I'm not entirely sure; hostadd_v6 is called
- * seperately from this call for some reason, though it seems like
- * this and hostadd_v6 could be merged and the timestamp always set.
- *
- * TODO: Investiage if this and hostadd_v6 can be merged and timestamp
- *       always set -- I'm really not sure why we would ever want the
- *       timestamp to not be set.
- *
- * @see hostadd_v6
- *
- * @private
- * @param ip the IP to set
- * @param name the host name paired to the IP.
- */
-static void hostadd_timestamp_v6(struct in6_addr *ip, const char *name) {
-    hostadd_v6(ip, name);
-    hostcache_list->time = time(NULL);
 }
 
 /**
@@ -439,7 +418,7 @@ static const char * addrout_v6(struct in6_addr *a, in_port_t prt,
 
     if (he) {
         strcpyn(tmpbuf, sizeof(tmpbuf), he->h_name);
-        hostadd_v6(a, tmpbuf);
+        hostadd_v6(a, tmpbuf, 0);
         ptr = get_username_v6(a, prt, myprt);
 
         if (ptr) {
@@ -452,7 +431,7 @@ static const char * addrout_v6(struct in6_addr *a, in_port_t prt,
     }
 
     inet_ntop(AF_INET6, a, tmpbuf, SMALL_BUFFER_LEN);
-    hostadd_timestamp_v6(a, tmpbuf);
+    hostadd_v6(a, tmpbuf, time(NULL));
     ptr = get_username_v6(a, prt, myprt);
 
     if (ptr) {
@@ -539,8 +518,9 @@ static const char * hostfetch(long ip) {
  * @private
  * @param ip the IP to add
  * @param name the host to map the IP to
+ * @param timestamp the time to store
  */
-static void hostadd(long ip, const char *name) {
+static void hostadd(long ip, const char *name, time_t timestamp) {
     struct hostcache *ptr;
 
     if (!(ptr = malloc(sizeof(struct hostcache))))
@@ -556,25 +536,9 @@ static void hostadd(long ip, const char *name) {
     hostcache_list = ptr;
     memset(&(ptr->ipnum_v6), 0, sizeof(struct in6_addr));
     ptr->ipnum = ip;
-    ptr->time = 0;
+    ptr->time = timestamp;
     strcpyn(ptr->name, sizeof(ptr->name), name);
     hostprune();
-}
-
-/**
- * Add an IPv4 host to the cache and set the current time
- *
- * TODO: Investiage if this and hostadd can be merged and timestamp
- *       always set -- I'm really not sure why we would ever want the
- *       timestamp to not be set.
- *
- * @private
- * @param ip the IP to add
- * @param name the hostname that belongs to that IP
- */
-static void hostadd_timestamp(long ip, const char *name) {
-    hostadd(ip, name);
-    hostcache_list->time = time(NULL);
 }
 
 /**
@@ -759,7 +723,7 @@ static const char * addrout(in_addr_t a, in_port_t prt, in_port_t myprt) {
 
     if (he) {
         strcpyn(tmpbuf, sizeof(tmpbuf), he->h_name);
-        hostadd(ntohl(a), tmpbuf);
+        hostadd(ntohl(a), tmpbuf, 0);
         ptr = get_username(a, prt, myprt);
 
         if (ptr) {
@@ -775,7 +739,7 @@ static const char * addrout(in_addr_t a, in_port_t prt, in_port_t myprt) {
     snprintf(tmpbuf, sizeof(tmpbuf),
              "%" PRIu32 ".%" PRIu32 ".%" PRIu32 ".%" PRIu32, (a >> 24) & 0xff,
              (a >> 16) & 0xff, (a >> 8) & 0xff, a & 0xff);
-    hostadd_timestamp(a, tmpbuf);
+    hostadd(a, tmpbuf, time(NULL));
     ptr = get_username(htonl(a), prt, myprt);
 
     if (ptr) {
