@@ -317,17 +317,18 @@ timestr_full(long dtime)
 const char *
 timestr_long(long dtime)
 {
-    static char buf[SMALL_BUFFER_LEN], value[SMALL_BUFFER_LEN];
+    static char buf[SMALL_BUFFER_LEN];
     const char *str[7] = { "year", "month", "week", "day", "hour", "minute", "second" };
     int div[7] = { 31556736, 2621376, 604800, 86400, 3600, 60, 1 };
 
-    *buf = *value = 0;
+    *buf = 0;
 
     for (int i = 0; i < 7; i++) {
         if (dtime >= div[i]) {
             long temp = dtime / div[i];
-            snprintf(value, sizeof(value), "%s%s%ld %s%s", buf, (*buf ? ", " : ""), temp, str[i], temp != 1 ? "s" : "");
-            strncpy(buf, value, sizeof(buf));
+            size_t used = strlen(buf);
+            snprintf(buf + used, sizeof(buf) - used, "%s%ld %s%s",
+                     used ? ", " : "", temp, str[i], temp != 1 ? "s" : "");
             dtime %= div[i];
         }
     }
