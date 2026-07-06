@@ -81,20 +81,52 @@ muf_event_process_free(struct mufevent_process *ptr)
         mufevent_processes = ptr->next;
     }
 
+    /*
+     * @TODO: This is just a waste of CPU to NULL this stuff out.  If we were
+     *        re-using the structure it would make sense, but we're setting
+     *        all this then freeing it.  Even in a theoretical threaded
+     *        situation this doesn't make sense, because we already dequeue'd
+     *        it.
+     */
+    ptr->prev = NULL;
+    ptr->next = NULL;
+    ptr->player = NOTHING;
+
     if (ptr->fr) {
         if (PROGRAM_INSTANCES(ptr->prog)) {
             prog_clean(ptr->fr);
         }
+
+        /* @TODO: I know it's nitpicky, but this continues to be silly */
+        ptr->fr = NULL;
     }
+
+    /* @TODO: ....and this */
+    ptr->prog = NOTHING;
 
     if (ptr->filters) {
         for (int i = 0; i < ptr->filtercount; i++) {
             free(ptr->filters[i]);
+            ptr->filters[i] = NULL;
         }
 
         free(ptr->filters);
+
+        /* @TODO: ....and this */
+        ptr->filters = NULL;
+        ptr->filtercount = 0;
     }
 
+    /* @TODO: ....and this */
+    ptr->deleted = 1;
+
+    /*
+     * See?  We just blew away all those assignments we set and rattled up
+     * the CPU's cache for nothing.
+     *
+     * ... of course this is such a rarely used feature anyway, we probably
+     * aren't saving all that much.
+     */
     free(ptr);
 }
 
