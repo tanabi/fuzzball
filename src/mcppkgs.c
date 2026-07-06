@@ -24,6 +24,8 @@
 #include "props.h"
 #include "tune.h"
 
+#define MCP_LANGUAGES_MUF_VERSION "muf:7.0"
+
 /**
  * Send an MCP error message using the org-fuzzball-notify package
  *
@@ -388,9 +390,8 @@ mcppkg_simpleedit(McpFrame * mfr, McpMesg * msg, McpVer ver, void *context)
 
             tune_setparm(player, reference, content, TUNE_MLEV(player));
         } else if (!strcasecmp(category, "user")) {
-            /*
-             * @TODO this should probably have an 'unsupported' error ?
-             */
+            show_mcp_error(mfr, "simpleedit-set", "Unsupported reference category.");
+            return;
         } else {
             show_mcp_error(mfr, "simpleedit-set", "Unknown reference category.");
             return;
@@ -423,12 +424,7 @@ mcppkg_languages(McpFrame * mfr, McpMesg * msg, McpVer ver, void *context)
     if (!strcasecmp(msg->mesgname, "request")) {
         mcp_mesg_init(&omsg, "org-fuzzball-languages", "supported");
 
-        /*
-         * TODO: Shouldn't this constant MUF version be in some define?
-         *       Are we really at "version 7" or is this out of date?
-         *       Or is this just the same as the MUCK version?
-         */
-        mcp_mesg_arg_append(&omsg, "languages", "muf:7.0");
+        mcp_mesg_arg_append(&omsg, "languages", MCP_LANGUAGES_MUF_VERSION);
         mcp_frame_output_mesg(mfr, &omsg);
         mcp_mesg_clear(&omsg);
         return;

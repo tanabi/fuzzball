@@ -72,17 +72,13 @@ struct mcpevent_context {
 /**
  * Easy cleanup of a pointer to a mcp_muf_context struct
  *
- * TODO: Add inline to this.
- *
  * @private
  * @param context the pointer to a mcp_muf_context to free
  */
-static void
+static inline void
 muf_mcp_context_cleanup(void *context)
 {
-    struct mcp_muf_context *mmc = context;
-
-    free(mmc);
+    free(context);
 }
 
 /**
@@ -211,8 +207,7 @@ muf_mcp_callback(McpFrame * mfr, McpMesg * mesg, McpVer version, void *context)
 static void
 mcpevent_context_cleanup(void *context)
 {
-    struct mcpevent_context *mec = context;
-    free(mec);
+    free(context);
 }
 
 /**

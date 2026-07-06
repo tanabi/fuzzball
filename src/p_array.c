@@ -1692,7 +1692,12 @@ prim_array_get_propdirs(PRIM_PROTOTYPE)
     propadr = first_prop(ref, dir, &pptr, propname, sizeof(propname));
 
     while (propadr) {
-        snprintf(buf, sizeof(buf), "%s%c%s", dir, PROPDIR_DELIMITER, propname);
+        int used = snprintf(buf, sizeof(buf), "%s%c%s", dir, PROPDIR_DELIMITER, propname);
+
+        if (used < 0 || (size_t) used >= sizeof(buf)) {
+            array_free(nu);
+            abort_interp("Property name too long.");
+        }
 
         if (prop_read_perms(ProgUID, ref, buf, mlev)) {
             prptr = get_property(ref, buf);
@@ -2153,23 +2158,29 @@ prim_array_put_propvals(PRIM_PROTOTYPE)
         do {
             oper4 = array_getitem(arr, &temp1);
 
+            int used = 0;
+
             switch (temp1.type) {
                 case PROG_STRING:
-                    snprintf(propname, sizeof(propname), "%s%c%s", dir,
+                    used = snprintf(propname, sizeof(propname), "%s%c%s", dir,
                              PROPDIR_DELIMITER, DoNullInd(temp1.data.string));
                     break;
 
                 case PROG_INTEGER:
-                    snprintf(propname, sizeof(propname), "%s%c%d", dir,
+                    used = snprintf(propname, sizeof(propname), "%s%c%d", dir,
                              PROPDIR_DELIMITER, temp1.data.number);
                     break;
 
                 case PROG_FLOAT:
-                    snprintf(propname, sizeof(propname), "%s%c%.15g", dir,
+                    used = snprintf(propname, sizeof(propname), "%s%c%.15g", dir,
                              PROPDIR_DELIMITER, temp1.data.fnumber);
 
                     if (!strchr(propname, '.') && !strchr(propname, 'n')
                         && !strchr(propname, 'e')) {
+                        if (strlen(propname) + 2 >= sizeof(propname)) {
+                            abort_interp("Property name too long.");
+                        }
+
                         strcatn(propname, sizeof(propname), ".0");
                     }
 
@@ -2177,6 +2188,10 @@ prim_array_put_propvals(PRIM_PROTOTYPE)
 
                 default:
                     *propname = '\0';
+            }
+
+            if (used < 0 || (size_t) used >= sizeof(propname)) {
+                abort_interp("Property name too long.");
             }
 
             if (!prop_write_perms(ProgUID, ref, propname, mlev))

@@ -218,6 +218,14 @@ bool flag_eval(dbref ref, const char *spec);
 bool flag_eval_pattern(dbref ref, const char *pattern);
 
 /**
+ * Returns the char representation of the object-type flag.  This may
+ * be a null character.
+ *
+ * @param thing the object to return the flag for.
+ */
+char flag_object(dbref ref);
+
+/**
  * Generates a string representation of object flags. Uses the provided
  * buffer that has the given size.
  *

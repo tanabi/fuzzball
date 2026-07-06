@@ -1048,21 +1048,17 @@ timequeue_pid_frame(int pid)
 time_t
 next_event_time(time_t now)
 {
-    /*
-     * TODO: this assumes the return value of this will be a long.
-     *       Instead, cast thusly: return (time_t) -1;
-     */
     if (tqhead) {
         if (tqhead->when == -1) {
-            return (-1L);
+            return (time_t)-1;
         } else if (now >= tqhead->when) {
-            return 0L;
+            return 0;
         } else {
             return ((time_t) (tqhead->when - now));
         }
     }
 
-    return -1L;
+    return (time_t)-1;
 }
 
 /**

@@ -3545,7 +3545,7 @@ mfn_flags(MFUNARGS)
     buf3[1] = '\0';
     buf3[0] = flag_object(obj);
     flag_list(obj, buf2, sizeof(buf2));
-    snprintf(buf, sizeof(buf), "%s%s", buf3, buf2);
+    snprintf(buf, buflen, "%s%s", buf3, buf2);
     return buf;
 }
 

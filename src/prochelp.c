@@ -575,20 +575,14 @@ print_topics(FILE * f, FILE * hf)
  * Stores section, topic, and summary information for the given helpfile.
  *
  * @private
- * @param infile the sourc helpfile
+ * @param infile the source helpfile
  * @return the string length of the longest topic
  */
-static int
+static void
 find_topics(FILE * infile)
 {
     char buf[4096];
     char *s, *p;
-    int longest, lng;
-
-    /**
-     * @TODO Remove longest, and change function to return void.
-     */
-    longest = 0;
 
     while (!feof(infile)) {
         do {
@@ -644,17 +638,10 @@ find_topics(FILE * infile)
 
                 add_topic(p);
 
-                lng = strlen(p);
-
-                if (lng > longest)
-                    longest = lng;
-
                 break;
             }
         }
     }
-
-    return (longest);
 }
 
 /**

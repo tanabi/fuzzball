@@ -1121,7 +1121,7 @@ create_lostandfound(dbref * player, dbref * room)
 {
     char *player_name = malloc(tp_player_name_limit+1);
     char unparse_buf[16384];
-    int temp = 0;
+    int player_name_len;
 
     *room = new_object(false);
     NAME(*room) = alloc_string("lost+found");
@@ -1132,11 +1132,19 @@ create_lostandfound(dbref * player, dbref * room)
     PUSH(*room, CONTENTS(GLOBAL_ENVIRONMENT));
     SanFixed(*room, "Using %s to resolve unknown location");
 
-    while (lookup_player(player_name) != NOTHING && strlen(player_name) < (unsigned int)tp_player_name_limit) {
-        snprintf(player_name, tp_player_name_limit+1, "lost+found%d", ++temp);
+    player_name_len = snprintf(player_name, tp_player_name_limit+1,
+                               "lost+found");
+
+    for (int temp = 1;
+         player_name_len >= 0 &&
+         player_name_len < tp_player_name_limit &&
+         lookup_player(player_name) != NOTHING;
+         temp++) {
+        player_name_len = snprintf(player_name, tp_player_name_limit+1,
+                                   "lost+found%d", temp);
     }
 
-    if (strlen(player_name) >= (unsigned int)tp_player_name_limit) {
+    if (player_name_len < 0 || player_name_len >= tp_player_name_limit) {
         flag_unparse_object(NOTHING, GOD, unparse_buf, sizeof(unparse_buf));
         log_sanfix("WARNING: Unable to get lost+found player, using %s", unparse_buf);
         *player = GOD;
@@ -1158,7 +1166,7 @@ create_lostandfound(dbref * player, dbref * room)
         PLAYER_SET_INSERT_MODE(*player, 0);
         PUSH(*player, CONTENTS(*room));
         DBDIRTY(*player);
-        add_player(*player);
+        player_hash_add(*player);
         flag_unparse_object(NOTHING, *player, unparse_buf, sizeof(unparse_buf));
         log_sanfix("Using %s (with password %s) to resolve unknown owner",
                    unparse_buf, rpass);
@@ -1316,17 +1324,18 @@ find_misplaced_objects(void)
                 case TYPE_PLAYER: {
                     char *name = malloc(tp_player_name_limit+1);
 
-                    /* Loop to find a name we can use */
+                    for (int temp = 1; ; temp++) {
+                        int len = snprintf(name, tp_player_name_limit+1,
+                                           "Unnamed%d", temp);
 
-                    /* @TODO: turn this into a for loop */
-                    int temp = 0;
-
-                    while (lookup_player(name) != NOTHING && strlen(name) < (unsigned int)tp_player_name_limit) {
-                        snprintf(name, tp_player_name_limit+1, "Unnamed%d", ++temp);
+                        if (len < 0 || len >= tp_player_name_limit ||
+                            lookup_player(name) == NOTHING) {
+                            break;
+                        }
                     }
 
                     NAME(loop) = alloc_string(name);
-                    add_player(loop);
+                    player_hash_add(loop);
                     free(name);
                     break;
                 }

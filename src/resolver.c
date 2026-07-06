@@ -53,29 +53,15 @@ static char *strcpyn(char *buf, size_t bufsize, const char *src) {
     return buf;
 }
 
-/*
- * TODO: I don't think this declaration is needed since the definition is
- *       right after it, and this is local to the file.
- *
- *       If this is being linked to another file that defines notify, then
- *       it would make since to declare ... but to declare + define?
- *       I think we can delete it.
- *
- *       In fact, 'notify' is not used in this file at all -- maybe it is
- *       needed for a define?  Maybe we should just remove it altogether?
- */
-int notify(int player, const char *msg);
-
 /**
- * This is a local version of the 'notify' method used by fuzzball
- *
- * It just is a wrapper around printf, probably to satisfy some dependency.
+ * Local notify shim when building fb-resolver (interface.o not linked)
  *
  * @param player ignored
  * @param msg the message to display
  * @return the return value of printf
  */
-int notify(int player, const char *msg) {
+int
+notify(int player, const char *msg) {
     (void)player;
     return printf("%s\n", msg);
 }
@@ -238,8 +224,9 @@ static const char * hostfetch_v6(struct in6_addr *ip) {
  * @private
  * @param ip the IP to add to the cache
  * @param name the host name to add to the cache
+ * @param timestamp the time to store
  */
-static void hostadd_v6(struct in6_addr *ip, const char *name) {
+static void hostadd_v6(struct in6_addr *ip, const char *name, time_t timestamp) {
     struct hostcache *ptr;
 
     if (!(ptr = malloc(sizeof(struct hostcache))))
@@ -255,31 +242,9 @@ static void hostadd_v6(struct in6_addr *ip, const char *name) {
     hostcache_list = ptr;
     memcpy(&(ptr->ipnum_v6), ip, sizeof(struct in6_addr));
     ptr->ipnum = 0;
-    ptr->time = 0;
+    ptr->time = timestamp;
     strcpyn(ptr->name, sizeof(ptr->name), name);
     hostprune();
-}
-
-/**
- * Add an IPv6 and name pair to the cache, and set the timestamp
- *
- * Why this is separate, I'm not entirely sure; hostadd_v6 is called
- * seperately from this call for some reason, though it seems like
- * this and hostadd_v6 could be merged and the timestamp always set.
- *
- * TODO: Investiage if this and hostadd_v6 can be merged and timestamp
- *       always set -- I'm really not sure why we would ever want the
- *       timestamp to not be set.
- *
- * @see hostadd_v6
- *
- * @private
- * @param ip the IP to set
- * @param name the host name paired to the IP.
- */
-static void hostadd_timestamp_v6(struct in6_addr *ip, const char *name) {
-    hostadd_v6(ip, name);
-    hostcache_list->time = time(NULL);
 }
 
 /**
@@ -453,7 +418,7 @@ static const char * addrout_v6(struct in6_addr *a, in_port_t prt,
 
     if (he) {
         strcpyn(tmpbuf, sizeof(tmpbuf), he->h_name);
-        hostadd_v6(a, tmpbuf);
+        hostadd_v6(a, tmpbuf, 0);
         ptr = get_username_v6(a, prt, myprt);
 
         if (ptr) {
@@ -466,7 +431,7 @@ static const char * addrout_v6(struct in6_addr *a, in_port_t prt,
     }
 
     inet_ntop(AF_INET6, a, tmpbuf, SMALL_BUFFER_LEN);
-    hostadd_timestamp_v6(a, tmpbuf);
+    hostadd_v6(a, tmpbuf, time(NULL));
     ptr = get_username_v6(a, prt, myprt);
 
     if (ptr) {
@@ -553,8 +518,9 @@ static const char * hostfetch(long ip) {
  * @private
  * @param ip the IP to add
  * @param name the host to map the IP to
+ * @param timestamp the time to store
  */
-static void hostadd(long ip, const char *name) {
+static void hostadd(long ip, const char *name, time_t timestamp) {
     struct hostcache *ptr;
 
     if (!(ptr = malloc(sizeof(struct hostcache))))
@@ -570,31 +536,10 @@ static void hostadd(long ip, const char *name) {
     hostcache_list = ptr;
     memset(&(ptr->ipnum_v6), 0, sizeof(struct in6_addr));
     ptr->ipnum = ip;
-    ptr->time = 0;
+    ptr->time = timestamp;
     strcpyn(ptr->name, sizeof(ptr->name), name);
     hostprune();
 }
-
-/**
- * Add an IPv4 host to the cache and set the current time
- *
- * TODO: Investiage if this and hostadd can be merged and timestamp
- *       always set -- I'm really not sure why we would ever want the
- *       timestamp to not be set.
- *
- * @private
- * @param ip the IP to add
- * @param name the hostname that belongs to that IP
- */
-static void hostadd_timestamp(long ip, const char *name) {
-    hostadd(ip, name);
-    hostcache_list->time = time(NULL);
-}
-
-/*
- * TODO: I'm pretty sure we don't need this declaration
- */
-void set_signals(void);
 
 /**
  * Traps certain signals that we don't care about
@@ -778,7 +723,7 @@ static const char * addrout(in_addr_t a, in_port_t prt, in_port_t myprt) {
 
     if (he) {
         strcpyn(tmpbuf, sizeof(tmpbuf), he->h_name);
-        hostadd(ntohl(a), tmpbuf);
+        hostadd(ntohl(a), tmpbuf, 0);
         ptr = get_username(a, prt, myprt);
 
         if (ptr) {
@@ -794,7 +739,7 @@ static const char * addrout(in_addr_t a, in_port_t prt, in_port_t myprt) {
     snprintf(tmpbuf, sizeof(tmpbuf),
              "%" PRIu32 ".%" PRIu32 ".%" PRIu32 ".%" PRIu32, (a >> 24) & 0xff,
              (a >> 16) & 0xff, (a >> 8) & 0xff, a & 0xff);
-    hostadd_timestamp(a, tmpbuf);
+    hostadd(a, tmpbuf, time(NULL));
     ptr = get_username(htonl(a), prt, myprt);
 
     if (ptr) {
@@ -833,15 +778,8 @@ static pthread_mutex_t output_mutex = PTHREAD_MUTEX_INITIALIZER;
  * @see resolver_thread_root
  *
  * @private
- * @return int -- not really used for anything, does not always return
  */
-static int do_resolve(void) {
-    /*
-     * TODO: change this to return void and just have the 'return 0's
-     *       below just 'return'.  If you get to the bottom of this function,
-     *       it actually returns NOTHING which is weird -- thankfully nothing
-     *       pays attention to the return value of this function.
-     */
+static void do_resolve(void) {
     int ip1, ip2, ip3, ip4;
     in_port_t prt, myprt;
     int doagain;
@@ -864,13 +802,13 @@ static int do_resolve(void) {
 
             /* lock input here. */
             if (pthread_mutex_lock(&input_mutex)) {
-                return 0;
+                return;
             }
 
             if (shutdown_was_requested) {
                 /* unlock input here. */
                 pthread_mutex_unlock(&input_mutex);
-                return 0;
+                return;
             }
 
             /*
@@ -903,7 +841,7 @@ static int do_resolve(void) {
             pthread_mutex_unlock(&input_mutex);
 
             if (shutdown_was_requested) {
-                return 0;
+                return;
             } else if (doagain) {
                 sleep(1);
             }
@@ -966,7 +904,7 @@ static int do_resolve(void) {
 
         /* lock output here. */
         if (pthread_mutex_lock(&output_mutex)) {
-            return 0;
+            return;
         }
 
         fprintf(stdout, "%s\n", outbuf);
